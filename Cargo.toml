@@ -1,0 +1,15 @@
+[package]
+name = "mango-tango"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+dotenvy = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "signal"] }
+serenity = { version = "0.12", default-features = false, features = ["client","gateway","rustls_backend","model","voice","cache"] }
+songbird = { version = "0.5", features = ["serenity","builtin-queue"] }
+symphonia = { version = "0.5", features = ["aac","mp3","isomp4","alac"] }
+reqwest = { version = "0.12", features = ["rustls-tls"] }
