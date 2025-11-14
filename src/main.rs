@@ -5,6 +5,7 @@ use tracing_subscriber::{fmt, EnvFilter, prelude::*};
 mod adapters;
 mod commands;
 mod init;
+mod slash_commands;
 
 #[tokio::main]
 async fn main() -> Result<()> {

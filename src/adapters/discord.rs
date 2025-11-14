@@ -1,13 +1,11 @@
 use anyhow::Result;
 use serenity::{
-    async_trait,
-    model::{channel::Message, gateway::Ready},
-    prelude::*,
+    all::Interaction, 
+    async_trait, model::{channel::Message, gateway::Ready}, prelude::*
 };
 use songbird::SerenityInit;
 
-use crate::commands;
-use crate::init;
+use crate::{commands, init, slash_commands};
 
 pub struct Bot;
 
@@ -16,8 +14,24 @@ impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
         tracing::info!("Logged in as {}", ready.user.name);
 
+        if let Err(e) = slash_commands::register_all(&ctx.http).await {
+            tracing::error!("command registration failed: {e:#}");
+        }
+
         if let Err(e) = init::after_ready(&ctx).await {
             tracing::error!("after_ready failed: {e:#}");
+        }
+    }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        if let Interaction::Command(cmd) = interaction {
+                match cmd.data.name.as_str() {
+                    "ping" => { let _ = slash_commands::ping::run(&ctx, &cmd).await; }
+                    "join" => { let _ = slash_commands::join::run(&ctx, &cmd).await; }
+                    "search" => { let _ = slash_commands::search::run(&ctx, &cmd).await; }
+                    "play_link"  => { let _ = slash_commands::play_link::run(&ctx, &cmd).await; }
+                    _ => {}
+            }
         }
     }
 
