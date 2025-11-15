@@ -1,14 +1,19 @@
 use anyhow::{anyhow, Result};
 use serenity::{
     all::{
-        CommandInteraction, CommandOptionType, CreateCommand, CreateCommandOption,
-        CreateInteractionResponse, CreateInteractionResponseMessage,
+        CommandInteraction, 
+        CommandOptionType, 
+        CreateCommand, 
+        CreateCommandOption, 
+        CreateInteractionResponseFollowup
     },
     model::id::{ChannelId, GuildId},
     prelude::*,
 };
 use serenity::model::mention::Mentionable;
 use songbird::input::Input;
+
+use crate::helpers;
 
 pub fn register() -> CreateCommand {
     CreateCommand::new("play_link")
@@ -20,6 +25,8 @@ pub fn register() -> CreateCommand {
 }
 
 pub async fn run(ctx: &Context, cmd: &CommandInteraction) -> Result<()> {
+    helpers::anxious_reply::run(ctx, cmd).await?;
+
     let gid = cmd.guild_id.ok_or_else(|| anyhow!("DMs not supported"))?;
 
     let (voice_chan_id, guild_id_copy): (ChannelId, GuildId) = {
@@ -58,13 +65,11 @@ pub async fn run(ctx: &Context, cmd: &CommandInteraction) -> Result<()> {
     }
 
     let content = format!("▶️ queued: {url} in {}", voice_chan_id.mention());
-    cmd.create_response(
+    cmd.create_followup(
         &ctx.http,
-        CreateInteractionResponse::Message(
-            CreateInteractionResponseMessage::new().content(content),
-        ),
-    )
-    .await?;
+        CreateInteractionResponseFollowup::new()
+            .content(content),
+    ).await?;
 
     Ok(())
 }

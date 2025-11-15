@@ -3,9 +3,11 @@ use tracing::{info, warn};
 use tracing_subscriber::{fmt, EnvFilter, prelude::*};
 
 mod adapters;
-mod commands;
 mod init;
 mod slash_commands;
+mod helpers;
+mod lifecycle;
+mod middleware;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -17,14 +19,12 @@ async fn main() -> Result<()> {
 
     let token = std::env::var("DISCORD_TOKEN")?;
 
-    // Spawn the bot; keep a heartbeat so the process lives even if the client stops.
     let bot = tokio::spawn(async move {
         if let Err(e) = adapters::discord::run(token).await {
             tracing::error!("bot error: {e:#}");
         }
     });
 
-    // Graceful shutdown
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {
             warn!("shutdown signal received");

@@ -1303,7 +1303,9 @@ name = "mango-tango"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dashmap 6.1.0",
  "dotenvy",
+ "once_cell",
  "reqwest 0.12.24",
  "serenity",
  "songbird",
