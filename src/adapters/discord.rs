@@ -1,12 +1,18 @@
 use anyhow::Result;
 use serenity::{
-    all::Interaction, 
-    async_trait, model::{gateway::Ready}, prelude::*
+    all::{
+        CreateInteractionResponseFollowup, 
+        GatewayIntents, 
+        Interaction
+    },
+    async_trait,
+    model::gateway::Ready,
+    prelude::*,
 };
 use songbird::SerenityInit;
 use tokio::signal;
 
-use crate::{helpers, init, slash_commands, middleware};
+use crate::{helpers, init, middleware, slash_commands};
 use crate::lifecycle::status::{StatusManager, Phase};
 
 pub struct Bot;
@@ -36,37 +42,93 @@ impl EventHandler for Bot {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::Command(cmd) = interaction {
-            let command = cmd.data.name.as_str();
+        match interaction {
+            Interaction::Command(cmd) => {
+                let command = cmd.data.name.as_str();
 
-            if command != "ping" {
-                if let Err(_e) = helpers::join_channel::run(&ctx, &cmd).await {
-                    return;
+                if command != "ping" {
+                    if let Err(e) = helpers::join_channel::run(&ctx, &cmd).await {
+                        tracing::warn!("join_channel failed: {e:#}");
+                        return;
+                    }
+                }
+
+                match command {
+                    "ping" => {
+                        let _ = slash_commands::ping::run(&ctx, &cmd).await;
+                    }
+                    "status" => {
+                        let _ = slash_commands::status::run(&ctx, &cmd).await;
+                    }
+                    "search" => {
+                        middleware::idle::run_music_with_idle(
+                            &ctx,
+                            &cmd,
+                            slash_commands::search::run(&ctx, &cmd),
+                        )
+                        .await;
+                    }
+                    "play_link" => {
+                        middleware::idle::run_music_with_idle(
+                            &ctx,
+                            &cmd,
+                            slash_commands::play_link::run(&ctx, &cmd),
+                        )
+                        .await;
+                    }
+                    "skip" => {
+                        let _ = slash_commands::skip::run(&ctx, &cmd).await;
+                    }
+                    _ => {}
                 }
             }
 
-            match command {
-                "ping" => { let _ = slash_commands::ping::run(&ctx, &cmd).await; }
-                "status" => { let _ = slash_commands::status::run(&ctx, &cmd).await; }
-                "search" => {
-                    middleware::idle::run_music_with_idle(
-                        &ctx,
-                        &cmd,
-                        slash_commands::search::run(&ctx, &cmd),
-                    )
-                    .await;
+            Interaction::Component(component) => {
+                let custom_id = component.data.custom_id.as_str();
+
+                if let Some(rest) = custom_id.strip_prefix("search_pick:") {
+                    if let Err(e) = component.defer_ephemeral(&ctx.http).await {
+                        tracing::error!("failed to defer search_pick interaction: {e:#}");
+                        return;
+                    }
+
+                    if let Ok(idx) = rest.parse::<usize>() {
+                        if let Some(guild_id) = component.guild_id {
+                            let user_id = component.user.id;
+
+                            if let Some(results) = helpers::search_state::get_results(guild_id, user_id) {
+                                if idx < results.len() {
+                                    let chosen = &results[idx];
+
+                                    if let Some(songbird) = songbird::get(&ctx).await {
+                                        if let Some(handler_lock) = songbird.get(guild_id) {
+                                            let mut handler = handler_lock.lock().await;
+                                            let input = crate::adapters::youtube::ytdlp_input(&chosen.url);
+                                            handler.enqueue_input(input).await;
+                                        }
+                                    }
+
+                                    if let Err(e) = component
+                                        .create_followup(
+                                            &ctx.http,
+                                            CreateInteractionResponseFollowup::new()
+                                                .content(format!("▶️ Queued **{}**", chosen.title)),
+                                        )
+                                        .await
+                                    {
+                                        tracing::error!(
+                                            "failed to send followup for search_pick button: {e:#}"
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                "play_link" => {
-                    middleware::idle::run_music_with_idle(
-                        &ctx,
-                        &cmd,
-                        slash_commands::play_link::run(&ctx, &cmd),
-                    )
-                    .await;
-                }
-                "skip" => { let _ = slash_commands::skip::run(&ctx, &cmd).await; }
-                _ => {}
             }
+
+
+            _ => {}
         }
     }
 }
@@ -84,23 +146,23 @@ pub async fn run(token: String) -> Result<()> {
         .register_songbird()
         .await?;
 
-        {
-            let shard_manager = client.shard_manager.clone();
+    {
+        let shard_manager = client.shard_manager.clone();
 
-            tokio::spawn(async move {
-                if let Err(e) = signal::ctrl_c().await {
-                    tracing::error!("ctrl_c signal handler error: {e:#}");
-                    return;
-                }
+        tokio::spawn(async move {
+            if let Err(e) = signal::ctrl_c().await {
+                tracing::error!("ctrl_c signal handler error: {e:#}");
+                return;
+            }
 
-                let status = StatusManager::global();
-                status.set_phase(Phase::ShuttingDown).await;
-                status.clear_error().await;
+            let status = StatusManager::global();
+            status.set_phase(Phase::ShuttingDown).await;
+            status.clear_error().await;
 
-                tracing::info!("Shutting down shards…");
-                shard_manager.shutdown_all().await;
-            });
-        }
+            tracing::info!("Shutting down shards…");
+            shard_manager.shutdown_all().await;
+        });
+    }
 
     client.start().await?;
     Ok(())

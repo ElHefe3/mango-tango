@@ -23,7 +23,7 @@ pub async fn run_music_with_idle<Fut>(
 
     if let Ok(snapshot) = helpers::get_queue::run(ctx, guild_id).await {
         if snapshot.in_voice && snapshot.queue_len == 0 && !snapshot.is_playing {
-            IdleManager::arm(ctx, guild_id, Duration::from_secs(5));
+            IdleManager::arm(ctx, guild_id, Duration::from_secs(300));
         } else {
             IdleManager::disarm(guild_id);
         }

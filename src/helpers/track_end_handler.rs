@@ -22,7 +22,7 @@ impl VoiceEventHandler for TrackEndIdleHandler {
             match result {
                 Ok(snapshot) => {
                     if snapshot.in_voice && snapshot.queue_len == 0 && !snapshot.is_playing {
-                        IdleManager::arm(&self.ctx, self.guild_id, Duration::from_secs(5));
+                        IdleManager::arm(&self.ctx, self.guild_id, Duration::from_secs(300));
                     } else {
                         IdleManager::disarm(self.guild_id);
                     }
