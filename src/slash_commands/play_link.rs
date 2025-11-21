@@ -14,7 +14,7 @@ use serenity::model::mention::Mentionable;
 use songbird::input::Input;
 
 use crate::helpers;
-use crate::lifecycle::status::StatusManager;
+use crate::adapters;
 
 pub fn register() -> CreateCommand {
     CreateCommand::new("play_link")
@@ -48,14 +48,12 @@ pub async fn run(ctx: &Context, cmd: &CommandInteraction) -> Result<()> {
                 .ok_or_else(|| anyhow!("you must be in a voice channel"))?;
             (chan, gid)
         };
-
-        let url = cmd
-            .data
-            .options
-            .iter()
-            .find(|o| o.name == "url")
-            .and_then(|o| o.value.as_str())
-            .ok_or_else(|| anyhow!("missing 'url' string option"))?;
+      
+    let input: Input = adapters::youtube::ytdlp_input(url);
+    let manager = songbird::get(ctx)
+        .await
+        .ok_or_else(|| anyhow!("Songbird voice manager not found"))?
+        .clone();
 
         let input: Input = crate::adapters::youtube::ytdlp_input(url);
         let manager = songbird::get(ctx)
