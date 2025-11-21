@@ -1,6 +1,7 @@
 pub mod ping;
-pub mod join;
+pub mod skip;
 pub mod search;
+pub mod status;
 pub mod play_link;
 
 use anyhow::Result;
@@ -19,20 +20,11 @@ pub async fn register_all(http: &Http) -> Result<()> {
         }
     }
 
-    debug!("Upserting /join…");
-    match Command::create_global_command(http, join::register()).await {
-        Ok(c) => info!("registered /{} (id={})", c.name, c.id),
-        Err(e) => {
-            error!("failed to upsert /join: {e:#}");
-            return Err(e.into());
-        }
-    }
-
     debug!("Upserting /search…");
     match Command::create_global_command(http, search::register()).await {
         Ok(c) => info!("registered /{} (id={})", c.name, c.id),
         Err(e) => {
-            error!("failed to upsert /join: {e:#}");
+            error!("failed to upsert /search: {e:#}");
             return Err(e.into());
         }
     }
@@ -41,7 +33,25 @@ pub async fn register_all(http: &Http) -> Result<()> {
     match Command::create_global_command(http, play_link::register()).await {
         Ok(c) => info!("registered /{} (id={})", c.name, c.id),
         Err(e) => {
-            error!("failed to upsert /join: {e:#}");
+            error!("failed to upsert /play_link: {e:#}");
+            return Err(e.into());
+        }
+    }
+
+    debug!("Upserting /status…");
+    match Command::create_global_command(http, status::register()).await {
+        Ok(c) => info!("registered /{} (id={})", c.name, c.id),
+        Err(e) => {
+            error!("failed to upsert /status: {e:#}");
+            return Err(e.into());
+        }
+    }
+
+    debug!("Upserting /skip…");
+    match Command::create_global_command(http, skip::register()).await {
+        Ok(c) => info!("registered /{} (id={})", c.name, c.id),
+        Err(e) => {
+            error!("failed to upsert /skip: {e:#}");
             return Err(e.into());
         }
     }
