@@ -44,9 +44,10 @@ impl EventHandler for Bot {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         match interaction {
             Interaction::Command(cmd) => {
+                let join_exclude_commands = ["ping", "status"];
                 let command = cmd.data.name.as_str();
 
-                if command != "ping" {
+                if !join_exclude_commands.contains(&command) {
                     if let Err(e) = helpers::join_channel::run(&ctx, &cmd).await {
                         tracing::warn!("join_channel failed: {e:#}");
                         return;
